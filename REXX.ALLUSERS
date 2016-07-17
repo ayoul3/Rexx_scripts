@@ -10,7 +10,7 @@
    Source : http://www.xephon.com/arcinframe.php//f002a04
    @Ayoul3 : added iteration through all users
    
-   TODO : launch from OMVS environment to pipe result to a file
+   TODO : choose a specific info to get rather than all or nothing
    TODO : Fix weird error RC(-3)
 */
 
