@@ -1,13 +1,17 @@
-/****************************REXX***********************************/
-/* Source: http://www.xephon.com/arcinframe.php//f002a04           */
-/* Modified: Ayoul3 : added iteration through all users            */
-/* DOC: To execute this exec, enter the command followed by two    */
-/*      parms (USER INFOALL).                                      */
-/*      if no USER is present, it gathers info of all users        */
-/* Careful :  Setting INFOALL=ALL generates a lot of information   */
-/*    *** YOU MUST BE AUTHORIZED TO ISSUE THE SEARCH COMMAND ***   */
-/*    *** YOU MUST BE AUTHORIZED TO ISSUE THE SETR LIST COMMAND    */
-/****************************REXX***********************************/
+/* REXX Script to retrieve all information regarding all or
+   a specific user.
+   Execute from TSO : EXEC 'REXX.ALLUSERS' [USER] [INFOALL=NO]   
+   Authorizations : READ access to Search command
+                    READ Access to SETR LIST command
+   
+   Warning : INFOALL=YES can be very very verbose..be careful
+   Source : http://www.xephon.com/arcinframe.php//f002a04
+   @Ayoul3 : added iteration through all users
+   
+   TODO : launch from OMVS environment to pipe result to a file
+   TODO : Fix weird error RC(-3)
+*/
+
   arg USERID INFOALL
   
   if USERID="" then
@@ -18,6 +22,7 @@
         
         say users.0 'users are present on the system'
         do i=1 to users.0
+           say users.i
            get_infos(users.i)
         end
       end
