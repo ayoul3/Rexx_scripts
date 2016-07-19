@@ -1,0 +1,62 @@
+/* REXX */
+/* Script to search for a string inside Datasets
+   Execute from TSO : EXEC 'REXX.SEARCH' '<HLQ> <STRING>'   
+   Execute from OMVS : ./REXX.SEARCH <HLQ> <STRING>
+   @uthor : Ayoul3
+   
+   TODO : Search in PDS members
+   TODO : Search in VSAM datasets
+   
+*/
+arg HLQ STRING
+
+if STRING="" then do
+  say "usage TSO : exec REXX.SEARCH '<HLQ> <STRING>' "
+  say "usage USS : ./REXX.SEARCH <HLQ> <STRING> "
+  say "note : if you are on TSO, do not forget the quotes"
+  exit
+ end
+
+
+if HLQ="" then do
+ HLQ='REXX'
+end
+
+say "Searching for datasets "HLQ".*"
+HLQ=strip(strip(HLQ,"T","*"),"T",".")
+DUMMY = OUTTRAP("listcat.","*")
+
+address tso "LISTCAT LEVEL("HLQ")"
+
+if RC <>0 then do
+  say "No datasets found with the HLQ "HLQ
+  exit
+end
+
+do i=1 to 1
+   if word(listcat.i,1)="NONVSAM" then do
+       call searchDS word(listcat.i,3),STRING
+   end
+end
+exit
+
+
+searchDS:
+
+    DT_NAME =arg(1)
+    STRING = translate(arg(2))
+
+    DT_NAME = strip(DT_NAME,'B')
+    address tso "alloc file(input) dataset('"DT_NAME"') SHR"
+    address tso "execio * diskr input (stem input. finis)"
+    address tso "free file(input)"
+
+    do j=1 to input.0
+    input.j =translate(input.j)
+    if (index(input.j,STRING) > 0) then,
+      do
+          say j input.j
+      end
+
+    end
+    return
