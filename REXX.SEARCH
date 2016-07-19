@@ -22,7 +22,8 @@ if HLQ="" then do
  HLQ='REXX'
 end
 
-say "Searching for datasets "HLQ".*"
+say "Searching for " STRING " in datasets "HLQ".*"
+say ""
 HLQ=strip(strip(HLQ,"T","*"),"T",".")
 DUMMY = OUTTRAP("listcat.","*")
 
