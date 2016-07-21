@@ -4,8 +4,10 @@
    Execute from OMVS : ./REXX.SEARCH <HLQ> <STRING>
    @uthor : Ayoul3
 
-   TODO : Search in PDS members
-   TODO : Search in VSAM datasets
+   TODO : Search in VSAM datasets..is it even doable ?
+   TODO : Search for passwords in JCL
+   TODO : REGEX ?
+   TODO : Accept normal qualifiers
 
 */
 arg HLQ STRING
