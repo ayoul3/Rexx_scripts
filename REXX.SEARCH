@@ -1,19 +1,18 @@
 /* REXX */
 /* Script to search for a string inside Datasets
    Execute from TSO : EXEC 'REXX.SEARCH' '<HLQ> <STRING>'
-   Execute from OMVS : ./REXX.SEARCH <HLQ> <STRING>
    @uthor : Ayoul3
 
-   TODO : Search in VSAM datasets..is it even doable ?
-   TODO : Search for passwords in JCL
-   TODO : REGEX ?
-   TODO : Accept normal qualifiers
+   TODO : Support any level qualifier
+          Support reading line by line
+          Support output format (DS,USS file, socket)
+          Ask user which type of DS to searhc for
 
 */
 arg HLQ STRING
 
 /* debug */
-HLQ = "REXX"
+HLQ = "SEARCH2"
 STRING = "AYOUB"
 /* fin debug*/
 
@@ -64,13 +63,49 @@ do i=1 to listcat.0
         end
 
      end
-     else if word(listcat.i,1)="NONVSAM" then do
-       call searchDS dt_name,STRING
-   end
+
+     else if sysdsorg="VS" & word(listcat.i,1) <> "IN-CAT" then do
+       call outtrap "entries."
+       address tso "LISTCAT ENTRY('"dt_name"')"
+       call outtrap "off"
+
+       if word(entries.1,1) ="DATA" then do
+            call searchVS dt_name,STRING
+        end
+       else if word(entries.1,1)="CLUSTER" then do
+            DT_DATA = word(entries.3,3)
+            parse var DT_DATA HLQ_D "." REST
+             if HLQ_D <> HLQ then do
+                call searchVS DT_DATA,STRING
+             end
+       end
+     end
+
+     else if sysdsorg ="PS" then do
+     call searchDS dt_name,STRING
+     end
 end
 exit
 
+searchVS:
+procedure
+    DT_NAME = arg(1)
+    STRING = translate(arg(2))
+    call outtrap "lines."
+    address tso "PRINT INDATASET('"DT_NAME"')"
+    call outtrap "off"
+    if RC <>0 then  do
+       say "[#] Error reading VSAM file " DT_NAME
+    end
+    do k=1 to lines.0
+      if (index(lines.k,STRING) > 0) then,
+      do
+        say DT_NAME k lines.k
+      end
+    end
+    return
 
+exit
 searchDS:
 procedure
     DT_NAME =arg(1)
