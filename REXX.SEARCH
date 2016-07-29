@@ -1,19 +1,28 @@
 /* REXX */
 /* Script to search for a string inside Datasets
-   Execute from TSO : EXEC 'REXX.SEARCH' '<HLQ> <STRING>'
+   Execute from TSO : EXEC 'REXX.SEARCH' '<HLQ> <STRING> <TYPE> <REST>'
+   <TYPE> = F (File), D (DATASET), or S (Socket)
+   <REST> = USS file, DATASET name, or IP PORT for socket
+
+   ---
+
+    EX 'REXX.SEARCH' 'IBMUSER TEST D REXX.SEARCH.OUT'
+    EX 'REXX.SEARCH' 'IBMUSER TEST F /tmp/result.txt'
+    EX 'REXX.SEARCJ' 'IBMUSER TEST S 10.10.10.10 4445'
+
    @uthor : Ayoul3
 
-   TODO : Support any level qualifier
-          Support reading line by line
-          Support output format (DS,USS file, socket)
-          Ask user which type of DS to searhc for
+   TODO : Support reading line by line
+          Ask user which type of DS to search for ?
 
 */
-arg HLQ STRING
+arg HLQ STRING TYPE REST
 
 /* debug */
 HLQ = "SEARCH2"
 STRING = "AYOUB"
+TYPE = "S"
+REST = "192.168.1.16 4445"
 /* fin debug*/
 
 if STRING="" then do
@@ -23,13 +32,11 @@ if STRING="" then do
   exit
  end
 
-
 if HLQ="" then do
- HLQ='REXX'
+ HLQ=userid()
 end
 
 say "Searching for " STRING " in datasets "HLQ".*"
-say ""
 HLQ=strip(strip(HLQ,"T","*"),"T",".")
 
 call outtrap "listcat."
@@ -41,6 +48,8 @@ if RC <>0 then do
   exit
 end
 
+call openOutput
+if TYPE='S' then REST = SocketID
 do i=1 to listcat.0
    dt_name = word(listcat.i,3)
    call listdsi "'"dt_name"'"
@@ -58,7 +67,7 @@ do i=1 to listcat.0
           end
           if idx =1 & mbrs.j \= "--MEMBERS--" then do
              tmp = dt_name||"("||strip(mbrs.j,'B')||")"
-             call searchDS tmp,STRING
+             call searchDS tmp,STRING,TYPE,REST
           end
         end
 
@@ -70,27 +79,32 @@ do i=1 to listcat.0
        call outtrap "off"
 
        if word(entries.1,1) ="DATA" then do
-            call searchVS dt_name,STRING
+
+            call searchVS dt_name,STRING,TYPE,REST
         end
        else if word(entries.1,1)="CLUSTER" then do
             DT_DATA = word(entries.3,3)
-            parse var DT_DATA HLQ_D "." REST
+            parse var DT_DATA HLQ_D "." RRRR
              if HLQ_D <> HLQ then do
-                call searchVS DT_DATA,STRING
+                call searchVS DT_DATA,STRING,TYPE,REST
              end
        end
      end
-
      else if sysdsorg ="PS" then do
-     call searchDS dt_name,STRING
+     call searchDS dt_name,STRING,TYPE,REST
      end
 end
+
+call closeFD
+
 exit
 
 searchVS:
 procedure
     DT_NAME = arg(1)
     STRING = translate(arg(2))
+    TYPE = arg(3)
+    REST = arg(4)
     call outtrap "lines."
     address tso "PRINT INDATASET('"DT_NAME"')"
     call outtrap "off"
@@ -100,21 +114,27 @@ procedure
     do k=1 to lines.0
       if (index(lines.k,STRING) > 0) then,
       do
-        say DT_NAME k lines.k
+        out=DT_NAME k lines.k
+        say out
+        call writeFD out,TYPE,REST
       end
     end
     return
 
 exit
+
 searchDS:
 procedure
     DT_NAME =arg(1)
     STRING = translate(arg(2))
     DT_NAME = strip(DT_NAME,'B')
+    TYPE = arg(3)
+    REST = arg(4)
     address tso "alloc file(input) dataset('"DT_NAME"') SHR"
     if RC \= 0 then
        do
           say '[#] Error allocating file' DT_NAME
+          return
        end
 
     address tso "execio * diskr input (stem input. finis)"
@@ -124,7 +144,89 @@ procedure
        input.j =translate(input.j)
        if (index(input.j,STRING) > 0) then,
          do
-            say DT_NAME j input.j
+            out = DT_NAME j input.j
+            say out
+            call writeFD out,TYPE,REST
          end
     end
+    return
+
+openOutput:
+    if TYPE="D" then do
+        out = "writing result to dataset "
+        if sysdsn("'"REST"'") = "OK" then
+        do
+           address tso "FREE FI(STDOUU)"
+           address tso "DELETE '"REST"'"
+        end
+        address tso "ALLOCATE FILE(STDOUU) DATASET('"REST"'),
+        NEW RECFM(V B) LRECL(80) BLKSIZE(27920),
+        TRACKS SPACE(5,2)"
+        if RC <>0 then do
+           say "Failed to allocate output dataset"
+           exit
+        end
+
+    end
+    if TYPE="F" then do
+        out = "writing result to USS file"
+        address syscall "stat "REST" rc."
+        if rc.0 <> 0 then do
+          address tso "FREE FI(STDOUU)"
+          address syscall "unlink "REST
+        end
+       "ALLOCATE FILE(STDOUU) PATH('"REST"'),
+       PATHOPTS(OWRONLY,OCREAT,OEXCL,OTRUNC) PATHMODE(SIRWXU),
+       PATHDISP(KEEP,KEEP)"
+       if RC <>0 then do
+           say "Failed to allocate output dataset"
+           exit
+        end
+    end
+
+    if TYPE="S" then do
+        parse var REST rhost rport
+        out =  "Sending result via socket "
+        terp = SOCKET('INITIALIZE','CLIENT',2);
+        terp = SOCKET('SOCKET',2,'STREAM','TCP');
+        parse var terp socket_rc socketID .
+        if socket_rc <> 0 then do
+           say '[!] Socket FAILED with info:' terp
+           terp = SOCKET('TERMINATE')
+           exit 1
+        end
+        terp = Socket('SETSOCKOPT',socketID,'SOL_SOCKET','SO_KEEPALIVE','ON')
+
+        terp = SOCKET('SETSOCKOPT',socketID,'SOL_SOCKET','SO_ASCII','On')
+        terp = SOCKET('CONNECT',socketID,'AF_INET' rport rhost)
+        parse var terp connect_rc rest
+        if connect_rc <> 0 then
+        do
+          say '[!] Connection Failed:' terp
+          exit
+        end
+    end
+
+    say out REST
+    return
+writeFD:
+   TYPE = arg(2)
+   SocketID = arg(3)
+   if TYPE="S" then do
+      terp = SOCKET('SEND',socketID,arg(1)||'25'x)
+   end
+   if TYPE='D' |TYPE='F' then do
+    push arg(1)
+    address tso "EXECIO * DISKW STDOUU"
+  end
+  return
+
+closeFD:
+   if TYPE='S' then do
+     te = SOCKET('CLOSE',socketID)
+   end
+   if TYPE='D' or TYPE='F' then do
+    address tso "EXECIO * DISKW STDOUU (FINIS"
+    address tso "FREE FI(STDOUU)"
+   end
     return
