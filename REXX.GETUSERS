@@ -1,0 +1,50 @@
+/* REXX */
+/* Script to get usernames displaying certain attributes.
+   Execute from TSO : EXEC 'REXX.GETUSERS' 'ATTRIBUTE1 ATTRIBUTE2...'   
+   Authorizations : READ access to Search command
+                    
+   
+   Author: @Ayoul3
+*/
+
+  arg attributes
+  
+  attr.0 = words(attributes)
+  do i=1 to attr.0
+    attr.i = word(attributes, i)
+  end
+
+  
+  do  
+    x = OUTTRAP('users.')
+    address tso 'sr class(USER)'
+    x = OUTTRAP('OFF')
+    
+    say users.0 'users are present on the system'
+    say "Fetching users with attributes " attributes   
+    say " "
+    do i=10 to 11
+       call screen_attributes users.i
+    end
+  end
+  
+  exit
+  
+
+screen_attributes:
+  USER  = arg(1)
+  x = OUTTRAP('lines.')
+  address tso "LISTUSER" USER
+  x = OUTTRAP('OFF')
+  found = 0
+  do j=1 to attr.0
+      if (index(lines.3, attr.j) > 0) then do
+        found = 1
+      end
+      else found = 0
+      
+  end
+  if (found ==1) then do
+      say "[+]" USER "has the attribute(s)" attributes
+  end
+return 
