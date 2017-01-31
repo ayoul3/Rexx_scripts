@@ -1,6 +1,6 @@
 /* REXX */
 /* Script to retrieve all information regarding all or
-   a specific user.
+   a specific user
    Execute from TSO : EXEC 'REXX.ALLUSERS' '[USER] [INFOALL=NO]'   
    Execute from OMVS : chmod +x REXX.ALLUSERS; ./REXX.ALLUSERS
    Authorizations : READ access to Search command
