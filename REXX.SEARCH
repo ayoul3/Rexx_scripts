@@ -3,7 +3,6 @@
    Execute from TSO : EXEC 'REXX.SEARCH' '<HLQ> <STRING> <TYPE> <REST>'
    <TYPE> = F (File), D (DATASET), or S (Socket)
    <REST> = USS file, DATASET name, or IP PORT for socket
-
    ---
 
     EX 'REXX.SEARCH' 'IBMUSER TEST D REXX.SEARCH.OUT'
