@@ -1,8 +1,7 @@
 /* REXX */
 /* Script to get usernames displaying certain attributes.
    Execute from TSO : EXEC 'REXX.GETUSERS' 'ATTRIBUTE1 ATTRIBUTE2...'   
-   Authorizations : READ access to Search command
-                    
+   Authorizations : READ access to Search command       
    
    Author: @Ayoul3
 */
